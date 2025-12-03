@@ -31,10 +31,13 @@ export default function ChatScreen({ route, navigation }) {
 
   const fetchMessages = async () => {
     try {
+      console.log('Fetching messages with recipientId:', recipientId);
       const response = await api.get(`/messages/${recipientId}`);
+      console.log('Messages fetched:', response.data);
       setMessages(response.data);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -45,10 +48,12 @@ export default function ChatScreen({ route, navigation }) {
 
     setSending(true);
     try {
-      await api.post('/messages', {
-        receiverId: recipientId,
+      console.log('Sending message to:', recipientId);
+      const response = await api.post('/messages', {
+        receiver_id: recipientId,
         message: newMessage.trim(),
       });
+      console.log('Message sent successfully:', response.data);
 
       const newMsg = {
         id: Date.now(),
@@ -66,6 +71,7 @@ export default function ChatScreen({ route, navigation }) {
       }, 100);
     } catch (error) {
       console.error('Error sending message:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setSending(false);
     }

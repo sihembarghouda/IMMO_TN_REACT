@@ -16,16 +16,25 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../../utils/constants';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function EditProfileScreen({ navigation }) {
   const { user, updateUser } = useAuth();
+  const { refreshNotifications } = useNotifications();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
     bio: user?.bio || '',
     photo: user?.photo || '',
+    role: user?.role || 'buyer',
   });
   const [loading, setLoading] = useState(false);
+
+  const roles = [
+    { value: 'buyer', label: 'Acheteur', icon: 'search' },
+    { value: 'visitor', label: 'Visiteur', icon: 'eye' },
+    { value: 'seller', label: 'Vendeur', icon: 'home' },
+  ];
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -55,8 +64,17 @@ export default function EditProfileScreen({ navigation }) {
 
     setLoading(true);
     try {
+      const oldRole = user?.role;
       const response = await api.put('/users/profile', formData);
       await updateUser(response.data.user);
+      
+      // Rafraîchir les notifications si le rôle a changé
+      if (formData.role !== oldRole) {
+        setTimeout(() => {
+          refreshNotifications();
+        }, 500);
+      }
+      
       Alert.alert('Succès', 'Profil mis à jour avec succès');
       navigation.goBack();
     } catch (error) {
@@ -132,6 +150,36 @@ export default function EditProfileScreen({ navigation }) {
               maxLength={200}
             />
             <Text style={styles.charCount}>{formData.bio.length}/200</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Rôle</Text>
+            <View style={styles.roleContainer}>
+              {roles.map((role) => (
+                <TouchableOpacity
+                  key={role.value}
+                  style={[
+                    styles.roleCard,
+                    formData.role === role.value && styles.roleCardActive,
+                  ]}
+                  onPress={() => setFormData({ ...formData, role: role.value })}
+                >
+                  <Ionicons
+                    name={role.icon}
+                    size={24}
+                    color={formData.role === role.value ? COLORS.white : COLORS.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.roleLabel,
+                      formData.role === role.value && styles.roleLabelActive,
+                    ]}
+                  >
+                    {role.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -228,5 +276,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.gray,
     textAlign: 'right',
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  roleCard: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.white,
+  },
+  roleCardActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  roleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  roleLabelActive: {
+    color: COLORS.white,
   },
 });

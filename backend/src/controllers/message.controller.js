@@ -56,7 +56,7 @@ exports.getMessages = async (req, res) => {
       WHERE (m.sender_id = $1 AND m.receiver_id = $2) 
          OR (m.sender_id = $2 AND m.receiver_id = $1)
       ORDER BY m.created_at ASC
-    `, [req.userId, userId, userId, req.userId]);
+    `, [req.userId, userId]);
 
     // Mark messages as read
     await db.query(
@@ -74,24 +74,30 @@ exports.getMessages = async (req, res) => {
 // Send a message
 exports.sendMessage = async (req, res) => {
   try {
-    const { receiverId, message } = req.body;
+    const { receiver_id, receiverId, message } = req.body;
+    const recipientId = receiver_id || receiverId;
 
-    if (!receiverId || !message) {
+    console.log('Send message request:', { recipientId, message, senderId: req.userId });
+
+    if (!recipientId || !message) {
       return res.status(400).json({ message: 'Receiver and message are required' });
     }
 
     const result = await db.query(
       'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3) RETURNING *',
-      [req.userId, receiverId, message]
+      [req.userId, recipientId, message]
     );
+
+    console.log('Message inserted:', result.rows[0]);
 
     res.status(201).json({
       message: 'Message sent successfully',
-      messageId: result.rows[0].id
+      messageId: result.rows[0].id,
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Send message error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

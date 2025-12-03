@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import { COLORS } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -77,25 +79,45 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Déconnexion', 
-          onPress: async () => {
-            await logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'MainTabs' }],
-            });
-          }, 
-          style: 'destructive' 
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    // Use window.confirm for web, Alert for native
+    const confirmLogout = Platform.OS === 'web' 
+      ? window.confirm('Êtes-vous sûr de vouloir vous déconnecter?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Déconnexion',
+            'Êtes-vous sûr de vouloir vous déconnecter?',
+            [
+              { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Déconnexion', style: 'destructive', onPress: () => resolve(true) }
+            ]
+          );
+        });
+    
+    if (!confirmLogout) {
+      return;
+    }
+    
+    try {
+      console.log('Logging out...');
+      await logout();
+      console.log('Logout successful, navigating...');
+      
+      // Reset navigation stack to Login
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        })
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      if (Platform.OS === 'web') {
+        alert('Erreur: Impossible de se déconnecter');
+      } else {
+        Alert.alert('Erreur', 'Impossible de se déconnecter');
+      }
+    }
   };
 
   const menuItems = [

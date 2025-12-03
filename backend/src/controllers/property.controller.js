@@ -142,22 +142,32 @@ exports.deleteProperty = async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log('Delete request for property:', id, 'by user:', req.userId);
+    
     // Check ownership
     const properties = await db.query('SELECT user_id FROM properties WHERE id = $1', [id]);
     
     if (!properties.rows || properties.rows.length === 0) {
+      console.log('Property not found:', id);
       return res.status(404).json({ message: 'Property not found' });
     }
 
     if (properties.rows[0].user_id !== req.userId) {
+      console.log('Unauthorized delete attempt. Property owner:', properties.rows[0].user_id, 'User:', req.userId);
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Delete related favorites first
+    await db.query('DELETE FROM favorites WHERE property_id = $1', [id]);
+    
+    // Delete the property
     await db.query('DELETE FROM properties WHERE id = $1', [id]);
+    
+    console.log('Property deleted successfully:', id);
     res.json({ message: 'Property deleted successfully' });
   } catch (error) {
     console.error('Delete property error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 

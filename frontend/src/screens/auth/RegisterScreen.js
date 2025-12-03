@@ -71,6 +71,9 @@ export default function RegisterScreen({ navigation }) {
 
     if (!result.success) {
       Alert.alert('Erreur d\'inscription', result.message);
+    } else {
+      // Redirection vers l'écran principal après inscription réussie
+      navigation.navigate('MainTabs', { screen: 'Home' });
     }
   };
 

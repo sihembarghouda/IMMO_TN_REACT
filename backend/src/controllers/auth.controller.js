@@ -47,7 +47,8 @@ exports.register = async (req, res) => {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
-        phone: newUser.phone
+        phone: newUser.phone,
+        role: newUser.role || 'buyer'
       }
     });
   } catch (error) {
@@ -101,7 +102,8 @@ exports.login = async (req, res) => {
         email: user.email,
         phone: user.phone,
         photo: user.photo,
-        bio: user.bio
+        bio: user.bio,
+        role: user.role || 'buyer'
       }
     });
   } catch (error) {
@@ -114,7 +116,7 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const users = await db.query(
-      'SELECT id, name, email, phone, photo, bio, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, phone, photo, bio, role, created_at FROM users WHERE id = $1',
       [req.userId]
     );
 

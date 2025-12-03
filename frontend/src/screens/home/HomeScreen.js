@@ -29,8 +29,9 @@ export default function HomeScreen({ navigation }) {
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [selectedCity, setSelectedCity] = useState('all');
+  const [favorites, setFavorites] = useState([]);
   const { unreadCount } = useNotifications();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const requireAuth = (action, callback) => {
     if (!isAuthenticated) {
@@ -47,15 +48,56 @@ export default function HomeScreen({ navigation }) {
     callback();
   };
 
+  const handleAddProperty = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Connexion requise',
+        'Vous devez vous connecter pour ajouter une propriété.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => navigation.navigate('Login') }
+        ]
+      );
+      return;
+    }
+
+    if (user?.role !== 'seller') {
+      Alert.alert(
+        'Accès restreint',
+        'Seuls les vendeurs peuvent ajouter des propriétés. Veuillez modifier votre rôle en "Vendeur" dans les paramètres du profil.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    navigation.navigate('AddProperty');
+  };
+
   useEffect(() => {
     fetchProperties();
-  }, []);
+    if (isAuthenticated) {
+      fetchFavorites();
+    }
+    
+    // Rafraîchir les notifications à chaque fois qu'on arrive sur la page
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (isAuthenticated) {
+        fetchFavorites();
+      }
+    });
+    
+    return unsubscribe;
+  }, [isAuthenticated]);
 
   const fetchProperties = async () => {
     try {
       const response = await api.get('/properties');
       // Ensure we always set an array
       const data = Array.isArray(response.data) ? response.data : [];
+      console.log('Properties fetched:', data.length);
+      if (data.length > 0) {
+        console.log('First property images:', data[0].images);
+      }
       setProperties(data);
     } catch (error) {
       console.error('Error fetching properties:', error);
@@ -63,6 +105,54 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const response = await api.get('/favorites');
+      setFavorites(response.data.map(fav => fav.property_id));
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    }
+  };
+
+  const toggleFavorite = async (propertyId) => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Connexion requise',
+        'Vous devez vous connecter pour ajouter des favoris.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => navigation.navigate('Login') }
+        ]
+      );
+      return;
+    }
+
+    // Vérifier si l'utilisateur est un acheteur
+    if (user?.role !== 'buyer') {
+      Alert.alert(
+        'Accès restreint',
+        'Seuls les acheteurs peuvent ajouter des annonces en favoris. Veuillez modifier votre rôle dans les paramètres du profil.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      const isFavorite = favorites.includes(propertyId);
+      
+      if (isFavorite) {
+        await api.delete(`/favorites/${propertyId}`);
+        setFavorites(favorites.filter(id => id !== propertyId));
+      } else {
+        await api.post('/favorites', { property_id: propertyId });
+        setFavorites([...favorites, propertyId]);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('Erreur', 'Impossible de modifier les favoris');
     }
   };
 
@@ -90,15 +180,50 @@ export default function HomeScreen({ navigation }) {
     return matchesSearch && matchesType && matchesTransaction && matchesCity && matchesPrice;
   }) : [];
 
-  const renderProperty = ({ item }) => (
-    <TouchableOpacity
-      style={styles.propertyCard}
-      onPress={() => navigation.navigate('PropertyDetails', { propertyId: item.id })}
-    >
-      <Image
-        source={{ uri: item.image || 'https://via.placeholder.com/300x200' }}
-        style={styles.propertyImage}
-      />
+  const renderProperty = ({ item }) => {
+    // Essayer d'abord le tableau images, puis l'image unique, puis placeholder
+    let displayImage = 'https://via.placeholder.com/300x200?text=No+Image';
+    
+    if (item.images && Array.isArray(item.images) && item.images.length > 0) {
+      displayImage = item.images[0];
+    } else if (item.image) {
+      displayImage = item.image;
+    }
+    
+    return (
+      <TouchableOpacity
+        style={styles.propertyCard}
+        onPress={() => navigation.navigate('PropertyDetails', { propertyId: item.id })}
+      >
+        <Image
+          source={{ uri: displayImage }}
+          style={styles.propertyImage}
+          defaultSource={{ uri: 'https://via.placeholder.com/300x200?text=Loading' }}
+          onError={(e) => {
+            console.log(`Image load error for property ${item.id}:`, e.nativeEvent.error);
+          }}
+        />
+        {item.images && Array.isArray(item.images) && item.images.length > 1 && (
+          <View style={styles.imageCountBadge}>
+            <Ionicons name="images" size={16} color={COLORS.white} />
+            <Text style={styles.imageCountText}>{item.images.length}</Text>
+          </View>
+        )}
+        {isAuthenticated && user?.role === 'buyer' && (
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleFavorite(item.id);
+            }}
+          >
+            <Ionicons
+              name={favorites.includes(item.id) ? 'heart' : 'heart-outline'}
+              size={24}
+              color={favorites.includes(item.id) ? COLORS.danger : COLORS.white}
+            />
+          </TouchableOpacity>
+        )}
       <View style={styles.propertyInfo}>
         <Text style={styles.propertyTitle} numberOfLines={1}>
           {item.title}
@@ -130,6 +255,7 @@ export default function HomeScreen({ navigation }) {
       </View>
     </TouchableOpacity>
   );
+  }
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -228,12 +354,14 @@ export default function HomeScreen({ navigation }) {
           </View>
         }
       />
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => requireAuth('add property', () => navigation.navigate('AddProperty'))}
-      >
-        <Ionicons name="add" size={30} color={COLORS.white} />
-      </TouchableOpacity>
+      {isAuthenticated && user?.role === 'seller' && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={handleAddProperty}
+        >
+          <Ionicons name="add" size={30} color={COLORS.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Advanced Filters Modal */}
       <Modal
@@ -592,6 +720,35 @@ const styles = StyleSheet.create({
     height: 200,
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
+  },
+  imageCountBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 5,
+  },
+  imageCountText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   propertyInfo: {
     padding: 15,

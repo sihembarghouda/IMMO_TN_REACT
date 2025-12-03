@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,24 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  FlatList,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, formatPrice } from '../../utils/constants';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+const { width } = Dimensions.get('window');
+
 export default function PropertyDetailsScreen({ route, navigation }) {
   const { propertyId } = route.params;
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { user } = useAuth();
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     fetchPropertyDetails();
@@ -67,12 +73,43 @@ export default function PropertyDetailsScreen({ route, navigation }) {
   };
 
   const handleContact = () => {
+    if (!user) {
+      Alert.alert(
+        'Connexion requise',
+        'Vous devez vous connecter pour contacter le propriétaire.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => navigation.navigate('Login') }
+        ]
+      );
+      return;
+    }
+
     if (property.owner_phone) {
       Linking.openURL(`tel:${property.owner_phone}`);
+    } else {
+      Alert.alert('Erreur', 'Numéro de téléphone non disponible');
     }
   };
 
   const handleMessage = () => {
+    if (!user) {
+      Alert.alert(
+        'Connexion requise',
+        'Vous devez vous connecter pour envoyer un message.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Se connecter', onPress: () => navigation.navigate('Login') }
+        ]
+      );
+      return;
+    }
+
+    console.log('Navigating to chat with:', {
+      recipientId: property.user_id,
+      recipientName: property.owner_name
+    });
+
     navigation.navigate('Chat', {
       recipientId: property.user_id,
       recipientName: property.owner_name,
@@ -99,10 +136,45 @@ export default function PropertyDetailsScreen({ route, navigation }) {
     <View style={styles.container}>
       <ScrollView>
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: property.image || 'https://via.placeholder.com/400x300' }}
-            style={styles.image}
-          />
+          {property.images && property.images.length > 0 ? (
+            <>
+              <FlatList
+                ref={flatListRef}
+                data={property.images}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={(event) => {
+                  const index = Math.round(event.nativeEvent.contentOffset.x / width);
+                  setCurrentImageIndex(index);
+                }}
+                scrollEventThrottle={16}
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item }) => (
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.image}
+                  />
+                )}
+              />
+              <View style={styles.paginationContainer}>
+                {property.images.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === currentImageIndex && styles.paginationDotActive
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <Image
+              source={{ uri: property.image || 'https://via.placeholder.com/400x300' }}
+              style={styles.image}
+            />
+          )}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -210,8 +282,30 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   image: {
-    width: '100%',
+    width: width,
     height: 300,
+  },
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: COLORS.white,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   backButton: {
     position: 'absolute',

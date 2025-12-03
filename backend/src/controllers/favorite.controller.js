@@ -22,16 +22,31 @@ exports.getFavorites = async (req, res) => {
 // Add to favorites
 exports.addFavorite = async (req, res) => {
   try {
-    const { propertyId } = req.body;
+    const { property_id, propertyId } = req.body;
+    const propId = property_id || propertyId;
 
-    if (!propertyId) {
+    if (!propId) {
       return res.status(400).json({ message: 'Property ID is required' });
+    }
+
+    // Check if user is a buyer
+    const userResult = await db.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.userId]
+    );
+
+    if (!userResult.rows || userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (userResult.rows[0].role !== 'buyer') {
+      return res.status(403).json({ message: 'Only buyers can add favorites' });
     }
 
     // Check if already favorited
     const existing = await db.query(
       'SELECT id FROM favorites WHERE user_id = $1 AND property_id = $2',
-      [req.userId, propertyId]
+      [req.userId, propId]
     );
 
     if (existing.rows && existing.rows.length > 0) {
@@ -40,7 +55,7 @@ exports.addFavorite = async (req, res) => {
 
     await db.query(
       'INSERT INTO favorites (user_id, property_id) VALUES ($1, $2)',
-      [req.userId, propertyId]
+      [req.userId, propId]
     );
 
     res.status(201).json({ message: 'Added to favorites' });

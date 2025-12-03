@@ -44,6 +44,9 @@ const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
+  const { user } = useAuth();
+  const isBuyer = user?.role === 'buyer';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -54,6 +57,8 @@ function MainTabs() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Map') {
             iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Favorites') {
+            iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'Messages') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Profile') {
@@ -67,10 +72,13 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Map" component={MapScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Accueil' }} />
+      <Tab.Screen name="Map" component={MapScreen} options={{ title: 'Carte' }} />
+      {isBuyer && (
+        <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ title: 'Favoris' }} />
+      )}
+      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'Messages' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profil' }} />
     </Tab.Navigator>
   );
 }

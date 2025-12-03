@@ -35,6 +35,9 @@ export default function LoginScreen({ navigation }) {
 
     if (!result.success) {
       Alert.alert('Erreur de connexion', result.message);
+    } else {
+      // Redirection vers l'écran principal après connexion réussie
+      navigation.navigate('MainTabs', { screen: 'Home' });
     }
   };
 
@@ -45,6 +48,13 @@ export default function LoginScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+        >
+          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+        
         <View style={styles.header}>
           <Ionicons name="home" size={80} color={COLORS.primary} />
           <Text style={styles.title}>IMMO_TN</Text>
@@ -120,6 +130,18 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 10,
+    left: 20,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.light,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     alignItems: 'center',

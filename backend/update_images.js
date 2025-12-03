@@ -1,29 +1,14 @@
-const bcrypt = require('bcryptjs');
-const db = require('../config/database');
+const db = require('./src/config/database');
 
-async function seedData() {
+async function updateImages() {
   try {
-    console.log('🌱 Seeding database with sample data...');
+    console.log('🖼️  Updating property images...');
 
-    // Create sample users
-    const hashedPassword = await bcrypt.hash('password123', 10);
-    
-    const users = [
-      ['Rayen Chraiet', 'rayen@example.com', '+216 94599198', hashedPassword],
-      ['Sihem Barghouda', 'sihem@example.com', '+216 12345678', hashedPassword],
-      ['Ahmed Ben Ali', 'ahmed@example.com', '+216 23456789', hashedPassword],
-      ['Fatma Trabelsi', 'fatma@example.com', '+216 34567890', hashedPassword],
-    ];
+    // Delete existing properties
+    await db.query('DELETE FROM properties');
+    console.log('🗑️  Cleared existing properties');
 
-    for (const user of users) {
-      await db.query(
-        'INSERT INTO users (name, email, phone, password) VALUES ($1, $2, $3, $4)',
-        user
-      );
-    }
-    console.log('✅ Users created');
-
-    // Sample properties data
+    // Properties with images
     const properties = [
       ['Appartement Moderne à Tunis', 'Magnifique appartement de 120m² avec vue sur la mer', 'APARTMENT', 'SALE', 350000, 'Tunis', 'Avenue Habib Bourguiba', 120, 3, 2, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800', 1],
       ['Villa avec Piscine à La Marsa', 'Villa luxueuse avec jardin et piscine', 'VILLA', 'SALE', 850000, 'Tunis', 'La Marsa', 300, 5, 3, 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800', 1],
@@ -44,47 +29,15 @@ async function seedData() {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         property
       );
+      console.log(`✅ Added: ${property[0]}`);
     }
-    console.log('✅ Properties created');
 
-    // Sample messages
-    await db.query(
-      'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3)',
-      [1, 2, 'Bonjour, je suis intéressé par votre propriété']
-    );
-    await db.query(
-      'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3)',
-      [2, 1, 'Bonjour! Merci pour votre intérêt. La propriété est toujours disponible.']
-    );
-    console.log('✅ Messages created');
-
-    // Sample favorites
-    await db.query('INSERT INTO favorites (user_id, property_id) VALUES ($1, $2)', [1, 2]);
-    await db.query('INSERT INTO favorites (user_id, property_id) VALUES ($1, $2)', [1, 5]);
-    console.log('✅ Favorites created');
-
-    // Sample notifications
-    await db.query(
-      'INSERT INTO notifications (user_id, type, title, message) VALUES ($1, $2, $3, $4)',
-      [1, 'property', 'Nouvelle propriété', 'Une nouvelle villa a été ajoutée à La Marsa']
-    );
-    await db.query(
-      'INSERT INTO notifications (user_id, type, title, message) VALUES ($1, $2, $3, $4)',
-      [1, 'message', 'Nouveau message', 'Vous avez reçu un nouveau message']
-    );
-    console.log('✅ Notifications created');
-
-    console.log('\n🎉 Database seeded successfully!');
-    console.log('\n📋 Sample Credentials:');
-    console.log('Email: rayen@example.com');
-    console.log('Password: password123');
-    console.log('\nOr use any of the other test accounts with the same password.');
-
+    console.log('\n🎉 Properties updated with images successfully!');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Seed error:', error);
+    console.error('❌ Update error:', error);
     process.exit(1);
   }
 }
 
-seedData();
+updateImages();

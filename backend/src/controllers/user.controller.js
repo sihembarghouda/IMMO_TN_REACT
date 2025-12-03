@@ -25,15 +25,41 @@ exports.getProfile = async (req, res) => {
 // Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, phone, bio, photo } = req.body;
+    const { name, phone, bio, photo, role } = req.body;
+
+    // Récupérer l'ancien rôle
+    const oldUserData = await db.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.userId]
+    );
+    const oldRole = oldUserData.rows[0]?.role;
 
     await db.query(
-      'UPDATE users SET name = $1, phone = $2, bio = $3, photo = $4 WHERE id = $5',
-      [name, phone, bio, photo, req.userId]
+      'UPDATE users SET name = $1, phone = $2, bio = $3, photo = $4, role = $5 WHERE id = $6',
+      [name, phone, bio, photo, role || 'buyer', req.userId]
     );
 
+    // Si le rôle a changé, créer une notification
+    if (role && role !== oldRole) {
+      const roleNames = {
+        buyer: 'Acheteur',
+        seller: 'Vendeur',
+        visitor: 'Visiteur'
+      };
+
+      await db.query(
+        'INSERT INTO notifications (user_id, type, title, message) VALUES ($1, $2, $3, $4)',
+        [
+          req.userId,
+          'role_change',
+          'Changement de rôle',
+          `Votre rôle a été changé en ${roleNames[role] || role}. Vous avez maintenant accès à de nouvelles fonctionnalités !`
+        ]
+      );
+    }
+
     const users = await db.query(
-      'SELECT id, name, email, phone, photo, bio FROM users WHERE id = $1',
+      'SELECT id, name, email, phone, photo, bio, role FROM users WHERE id = $1',
       [req.userId]
     );
 

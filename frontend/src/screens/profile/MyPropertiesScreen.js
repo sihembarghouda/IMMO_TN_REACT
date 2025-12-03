@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, formatPrice } from '../../utils/constants';
@@ -39,34 +40,53 @@ export default function MyPropertiesScreen({ navigation }) {
   };
 
   const deleteProperty = async (id) => {
-    Alert.alert(
-      'Supprimer la propriété',
-      'Êtes-vous sûr de vouloir supprimer cette propriété?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Deleting property:', id);
-              console.log('Auth token:', !!api.api.defaults.headers.common['Authorization']);
-              
-              const response = await api.delete(`/properties/${id}`);
-              console.log('Delete response:', response.data);
-              
-              setProperties(properties.filter(p => p.id !== id));
-              Alert.alert('Succès', 'Propriété supprimée avec succès');
-            } catch (error) {
-              console.error('Error deleting property:', error);
-              console.error('Error response:', error.response?.data);
-              console.error('Error status:', error.response?.status);
-              Alert.alert('Erreur', error.response?.data?.message || 'Impossible de supprimer la propriété');
-            }
-          },
-        },
-      ]
-    );
+    console.log('deleteProperty called with id:', id);
+    
+    // Use window.confirm for web, Alert for native
+    const confirmDelete = Platform.OS === 'web' 
+      ? window.confirm('Êtes-vous sûr de vouloir supprimer cette propriété?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Supprimer la propriété',
+            'Êtes-vous sûr de vouloir supprimer cette propriété?',
+            [
+              { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Supprimer', style: 'destructive', onPress: () => resolve(true) }
+            ]
+          );
+        });
+    
+    if (!confirmDelete) {
+      console.log('Delete cancelled');
+      return;
+    }
+    
+    console.log('Delete confirmed for property:', id);
+    try {
+      console.log('Sending DELETE request to:', `/properties/${id}`);
+      const response = await api.delete(`/properties/${id}`);
+      console.log('Delete successful:', response.data);
+      
+      setProperties(properties.filter(p => p.id !== id));
+      
+      if (Platform.OS === 'web') {
+        alert('Propriété supprimée avec succès');
+      } else {
+        Alert.alert('Succès', 'Propriété supprimée avec succès');
+      }
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      console.error('Error details:', error.response);
+      const errorMessage = error.response?.data?.message || 
+                           error.message || 
+                           'Impossible de supprimer la propriété';
+      
+      if (Platform.OS === 'web') {
+        alert(`Erreur: ${errorMessage}`);
+      } else {
+        Alert.alert('Erreur', errorMessage);
+      }
+    }
   };
 
   const renderProperty = ({ item }) => (

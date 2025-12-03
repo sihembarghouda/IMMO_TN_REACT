@@ -5,12 +5,12 @@ const authMiddleware = require('../middleware/auth.middleware');
 
 // Public routes
 router.get('/', propertyController.getAllProperties);
-router.get('/:id', propertyController.getPropertyById);
 
-// Protected routes
+// Protected routes (specific routes before parameterized routes)
+router.get('/user/my-properties', authMiddleware, propertyController.getUserProperties);
 router.post('/', authMiddleware, propertyController.createProperty);
+router.get('/:id', propertyController.getPropertyById);
 router.put('/:id', authMiddleware, propertyController.updateProperty);
 router.delete('/:id', authMiddleware, propertyController.deleteProperty);
-router.get('/user/my-properties', authMiddleware, propertyController.getUserProperties);
 
 module.exports = router;

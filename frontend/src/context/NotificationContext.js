@@ -1,55 +1,37 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext({});
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    saveNotifications();
     updateUnreadCount();
   }, [notifications]);
 
-  const loadNotifications = async () => {
+  const fetchNotifications = async () => {
     try {
-      // On web, use localStorage directly
-      if (Platform.OS === 'web') {
-        const stored = localStorage.getItem('notifications');
-        if (stored) {
-          setNotifications(JSON.parse(stored));
-        }
-      } else {
-        const stored = await AsyncStorage.getItem('notifications');
-        if (stored) {
-          setNotifications(JSON.parse(stored));
-        }
-      }
+      const response = await api.get('/notifications');
+      setNotifications(response.data);
     } catch (error) {
-      console.error('Error loading notifications:', error);
-    }
-  };
-
-  const saveNotifications = async () => {
-    try {
-      if (Platform.OS === 'web') {
-        localStorage.setItem('notifications', JSON.stringify(notifications));
-      } else {
-        await AsyncStorage.setItem('notifications', JSON.stringify(notifications));
-      }
-    } catch (error) {
-      console.error('Error saving notifications:', error);
+      console.error('Error fetching notifications:', error);
     }
   };
 
   const updateUnreadCount = () => {
-    const count = notifications.filter(n => !n.read).length;
+    const count = notifications.filter(n => !n.is_read).length;
     setUnreadCount(count);
   };
 
@@ -57,24 +39,45 @@ export const NotificationProvider = ({ children }) => {
     const newNotification = {
       id: Date.now().toString(),
       ...notification,
-      read: false,
-      timestamp: new Date().toISOString(),
+      is_read: false,
+      created_at: new Date().toISOString(),
     };
     setNotifications(prev => [newNotification, ...prev]);
   };
 
-  const markAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
+  const markAsRead = async (id) => {
+    try {
+      await api.put(`/notifications/${id}/read`);
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  const refreshNotifications = () => {
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
   };
 
   const clearAll = () => {
@@ -89,6 +92,7 @@ export const NotificationProvider = ({ children }) => {
     markAllAsRead,
     deleteNotification,
     clearAll,
+    refreshNotifications,
   };
 
   return (

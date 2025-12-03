@@ -56,10 +56,13 @@ export default function MessagesScreen({ navigation }) {
 
   const fetchConversations = async () => {
     try {
+      console.log('Fetching conversations...');
       const response = await api.get('/messages/conversations');
+      console.log('Conversations fetched:', response.data);
       setConversations(response.data);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
